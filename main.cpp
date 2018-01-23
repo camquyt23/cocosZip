@@ -12,7 +12,8 @@
 
 using namespace cocos2d;
 
-char _xxteaKey[1024];
+#define XXTEA_KEY_SIZE 1024
+char _xxteaKey[XXTEA_KEY_SIZE];
 size_t _xxteaSignLen = 6;
 size_t _xxteaKeyLen = 5;
 int encrypt_type = 0;
@@ -35,7 +36,7 @@ void parse_arg(int argc, char** argv) {
 			{ "encrypt", optional_argument, 0, 'e' },
 			{ "xxtea-key", optional_argument, 0, 'k' },
 			{ "xxtea-sign-size", optional_argument, 0, 'z' },
-			{ "file", required_argument, 0, 'f' },
+			{ "file", required_argument, 0, 'i' },
 			{ "dir", required_argument, 0, 'd' },
 			{ 0, 0, 0, 0 }
 		};
@@ -56,7 +57,7 @@ void parse_arg(int argc, char** argv) {
 			}
 			break;
 		case 'k':
-			memset(_xxteaKey, 0, 1024);
+			memset(_xxteaKey, 0, XXTEA_KEY_SIZE);
 			strcpy(_xxteaKey, optarg);
 			break;
 		case 'z':
@@ -65,10 +66,13 @@ void parse_arg(int argc, char** argv) {
 		case 'd':
 			out_dir = optarg;
 			break;
-		case 'f':
+		case 'i':
 			in_file = optarg;
 			break;
+		case '?':
+			break;
 		default:
+			CCLOG("wrong option %c \n", c);
 			abort();
 		}
 	}
@@ -76,10 +80,14 @@ void parse_arg(int argc, char** argv) {
 
 
 int main(int argc, char **argv) {
-	memset(_xxteaKey, 0, 1025);
+	memset(_xxteaKey, 0, XXTEA_KEY_SIZE);
 	strcpy(_xxteaKey, "b5730");
 
 	parse_arg(argc, argv);
+
+	CCLOG("Input : %s \n", in_file.c_str());
+	CCLOG("Output : %s \n", out_dir.c_str());
+	CCLOG("XXTEA : %s , %lu, %lu\n", _xxteaKey, _xxteaKeyLen, _xxteaSignLen);
 
 	FileUtils *utils = FileUtils::getInstance();
 	std::string zipFilePath = std::string(in_file);
