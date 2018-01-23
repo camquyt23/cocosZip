@@ -13,10 +13,17 @@
 using namespace cocos2d;
 
 #define XXTEA_KEY_SIZE 1024
+enum {
+	UNPACK = 1,
+	PACK = 2,
+	DECRYPT_XXTEA = 3,
+	ENCRYPT_XXTEA = 4
+};
 char _xxteaKey[XXTEA_KEY_SIZE];
+char _xxteaHeader[XXTEA_KEY_SIZE];
 size_t _xxteaSignLen = 6;
 size_t _xxteaKeyLen = 5;
-int encrypt_type = 0;
+int command = 1;
 std::string in_file;
 std::string out_dir;
 
@@ -25,7 +32,7 @@ std::string basename(std::string filename) {
 }
 
 void print_help() {
-	printf("cocosZip --encrypt xxtea --xxtea-key b5730 --xxtea-sign-size 6  --in filename --dir outdir");
+	printf("cocosZip --command decrypt-xxtea --xxtea-key b5730 --xxtea-sign-size 6  --in filename --dir outdir");
 }
 
 void parse_arg(int argc, char** argv) {
@@ -33,9 +40,10 @@ void parse_arg(int argc, char** argv) {
 	while (1) {
 		static struct option long_options[] = {
 			{ "help", no_argument, 0, 'h' },
-			{ "encrypt", optional_argument, 0, 'e' },
-			{ "xxtea-key", optional_argument, 0, 'k' },
-			{ "xxtea-sign-size", optional_argument, 0, 'z' },
+			{ "command", required_argument, 0, 'c' },
+			{ "xxtea-key", required_argument, 0, 'k' },
+			{ "xxtea-header", required_argument, 0, 'p' },
+			{ "xxtea-sign-size", required_argument, 0, 'z' },
 			{ "file", required_argument, 0, 'i' },
 			{ "dir", required_argument, 0, 'd' },
 			{ 0, 0, 0, 0 }
@@ -50,15 +58,21 @@ void parse_arg(int argc, char** argv) {
 		case 'h':
 			print_help();
 			return;
-		case 'e':
-			if (strcmp(optarg, "xxtea") == 0) {
-				encrypt_type = 1;
-				_xxteaKeyLen = strlen(optarg);
+		case 'c':
+			if (strcmp(optarg, "decrypt-xxtea") == 0) {
+				command = DECRYPT_XXTEA;
+			}else if (strcmp(optarg, "encrypt-xxtea") == 0) {
+				command = ENCRYPT_XXTEA;
 			}
 			break;
 		case 'k':
 			memset(_xxteaKey, 0, XXTEA_KEY_SIZE);
 			strcpy(_xxteaKey, optarg);
+			_xxteaKeyLen = strlen(optarg);
+			break;
+		case 'p':
+			memset(_xxteaHeader, 0, XXTEA_KEY_SIZE);
+			strcpy(_xxteaHeader, optarg);
 			break;
 		case 'z':
 			_xxteaSignLen = atoi(optarg);
@@ -82,6 +96,8 @@ void parse_arg(int argc, char** argv) {
 int main(int argc, char **argv) {
 	memset(_xxteaKey, 0, XXTEA_KEY_SIZE);
 	strcpy(_xxteaKey, "b5730");
+	memset(_xxteaHeader, 0, XXTEA_KEY_SIZE);
+	strcpy(_xxteaHeader, "pocket");
 
 	parse_arg(argc, argv);
 
@@ -101,29 +117,45 @@ int main(int argc, char **argv) {
 
 	CCLOG("ORIGIN size %ld, off %lx \n", size, (size - _xxteaSignLen));
 
-	if (encrypt_type == 1) { // decrypt XXTEA
+	switch(command) { // decrypt XXTEA
+	case DECRYPT_XXTEA: {
+		CCLOG("DECRYPT XXTEA \n");
 		xxtea_long len = 0;
 		buffer = xxtea_decrypt(bytes + _xxteaSignLen,
 				(xxtea_long) size - (xxtea_long) _xxteaSignLen,
 				(unsigned char*) _xxteaKey, (xxtea_long) _xxteaKeyLen, &len);
-		CCLOG("XXTEA size %d \n", len);
 		zipData2.copy((unsigned char*) buffer, len);
 		zip = ZipFile::createWithBuffer(buffer, len);
-	} else {
+		break;
+	}
+	case ENCRYPT_XXTEA: {
+		CCLOG("ENCRYPT XXTEA \n");
+		xxtea_long len = 0;
+		buffer = xxtea_encrypt(bytes, size, (unsigned char*) _xxteaKey, (xxtea_long) _xxteaKeyLen, &len);
+		unsigned char* ebuf = (unsigned char*) malloc(6 + len);
+		memcpy(ebuf, _xxteaHeader, 6);
+		memcpy(ebuf + 6, buffer, len);
+		zipData2.copy(ebuf, len + 6);
+		break;
+	}
+	default:
+		CCLOG("UNKNOWN COMMAND \n");
 		if (size > 0) {
 			zip = ZipFile::createWithBuffer(bytes, (unsigned long) size);
 			zipData2.copy(bytes, size);
 		}
+		break;
 	}
 
 	if (zip) {
-		CCLOG("lua_loadChunksFromZIP() - load zip file: %s%s \n",
-				zipFilePath.c_str(), encrypt_type ? "*" : "");
+		CCLOG("cocosZip load zip file: %s%s \n",
+				zipFilePath.c_str(), command ? "*" : "");
 		std::string f = out_dir + basename(in_file);
-		utils->writeDataToFile(zipData2, "/home/tran/Desktop/framework.zip");
+		CCLOG("cocosZip write to %s \n", f.c_str());
+		utils->writeDataToFile(zipData2, f);
 		delete zip;
 	} else {
-		CCLOG("lua_loadChunksFromZIP() - not found or invalid zip file: %s \n",
+		CCLOG("cocosZip not found or invalid zip file: %s \n",
 				zipFilePath.c_str());
 	}
 
