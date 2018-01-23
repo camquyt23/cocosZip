@@ -136,6 +136,7 @@ int main(int argc, char **argv) {
 		memcpy(ebuf, _xxteaHeader, 6);
 		memcpy(ebuf + 6, buffer, len);
 		zipData2.copy(ebuf, len + 6);
+		zip = ZipFile::createWithBuffer(bytes, (unsigned long) size);
 		break;
 	}
 	default:
