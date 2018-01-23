@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
 	if (zip) {
 		CCLOG("cocosZip load zip file: %s%s \n",
 				zipFilePath.c_str(), command ? "*" : "");
-		std::string f = out_dir + basename(in_file);
+		std::string f = out_dir + "/" + basename(in_file);
 		CCLOG("cocosZip write to %s \n", f.c_str());
 		utils->writeDataToFile(zipData2, f);
 		delete zip;
